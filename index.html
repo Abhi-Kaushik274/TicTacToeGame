@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drag & Drop Tic Tac Toe</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #000;
+            --board-bg: #fff;
+            --cell-border: #000;
+            --piece-bg: #6c757d;
+            --shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .dark-mode {
+            --bg-color: #212529;
+            --text-color: #fff;
+            --board-bg: #343a40;
+            --cell-border: #fff;
+            --piece-bg: #495057;
+            --shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .toggle-container {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+        }
+
+        .hidden { display: none; }
+        .game-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 50px;
+            margin-top: 20px;
+        }
+        .pieces-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            border: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .piece {
+            width: 60px;
+            height: 60px;
+            background-color: #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: grab;
+            border-radius: 50%;
+            color: white;
+        }
+        .disabled { opacity: 0.5; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <button class="btn btn-secondary toggle-container" onclick="toggleMode()">Toggle Dark Mode</button>
+    <div class="container mt-4">
+        <h2 class="mb-4">Tic Tac Toe Game</h2>
+        <div id="setup" class="mb-4">
+            <div class="mb-2">
+                <label class="form-label">Player 1 Name: </label>
+                <input type="text" id="player1" class="form-control" placeholder="Enter Player 1 Name">
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Player 2 Name: </label>
+                <input type="text" id="player2" class="form-control" placeholder="Enter Player 2 Name">
+            </div>
+            <button class="btn btn-primary" onclick="startGame()">Let's Start the Game</button>
+        </div>
+        <div id="game" class="hidden">
+            <h3 id="turn" class="mb-3"></h3>
+            <div class="game-container">
+                <div class="pieces-container" id="O-pieces"></div>
+                <div class="board" id="board"></div>
+                <div class="pieces-container" id="X-pieces"></div>
+            </div>
+            <h2 id="winner" class="hidden mt-3 text-success"></h2>
+            <button class="btn btn-danger mt-3" onclick="resetGame()">Reset Game</button>
+        </div>
+    </div>
+    <script>
+        let draggedItem = null;
+        let currentPlayer = "X";
+        let boardState = Array(9).fill(null);
+        let players = {};
+
+        function startGame() {
+            players["X"] = document.getElementById("player1").value || "Player 1";
+            players["O"] = document.getElementById("player2").value || "Player 2";
+            document.getElementById("setup").classList.add("hidden");
+            document.getElementById("game").classList.remove("hidden");
+            document.getElementById("turn").textContent = `Turn: ${players[currentPlayer]}`;
+            generateGameElements();
+        }
+
+        function toggleMode() {
+            document.body.classList.toggle("dark-mode");
+        }
+        
+        function generateGameElements() {
+            let O_piecesDiv = document.getElementById("O-pieces");
+            let X_piecesDiv = document.getElementById("X-pieces");
+            let boardDiv = document.getElementById("board");
+            O_piecesDiv.innerHTML = "";
+            X_piecesDiv.innerHTML = "";
+            boardDiv.innerHTML = "";
+            boardState.fill(null);
+
+            ["X", "O"].forEach((symbol) => {
+                let container = symbol === "X" ? X_piecesDiv : O_piecesDiv;
+                for (let i = 0; i < 5; i++) {
+                    let piece = document.createElement("div");
+                    piece.classList.add("piece", symbol);
+                    piece.textContent = symbol;
+                    piece.draggable = true;
+                    piece.addEventListener("dragstart", (e) => {
+                        if (symbol === currentPlayer) draggedItem = piece;
+                    });
+                    container.appendChild(piece);
+                }
+            });
+
+            updateDraggableStatus();
+
+            for (let i = 0; i < 9; i++) {
+                let cell = document.createElement("div");
+                cell.classList.add("cell");
+                cell.dataset.index = i;
+                cell.addEventListener("dragover", (e) => e.preventDefault());
+                cell.addEventListener("drop", (e) => placePiece(e, cell));
+                boardDiv.appendChild(cell);
+            }
+        }
+
+        function updateDraggableStatus() {
+            document.querySelectorAll(".piece").forEach(piece => {
+                if (piece.classList.contains(currentPlayer)) {
+                    piece.classList.remove("disabled");
+                } else {
+                    piece.classList.add("disabled");
+                }
+            });
+        }
+
+        function placePiece(e, cell) {
+            let index = cell.dataset.index;
+            if (!boardState[index] && draggedItem) {
+                cell.textContent = draggedItem.textContent;
+                boardState[index] = draggedItem.textContent;
+                draggedItem.remove();
+                checkWinner();
+                currentPlayer = currentPlayer === "X" ? "O" : "X";
+                document.getElementById("turn").textContent = `Turn: ${players[currentPlayer]}`;
+                updateDraggableStatus();
+            }
+        }
+
+        function checkWinner() {
+            const winningCombos = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                [0, 4, 8], [2, 4, 6]
+            ];
+            for (let combo of winningCombos) {
+                let [a, b, c] = combo;
+                if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) {
+                    document.getElementById("winner").textContent = `${players[boardState[a]]} Wins!`;
+                    document.getElementById("winner").classList.remove("hidden");
+                    document.getElementById("turn").classList.add("hidden");
+                    return;
+                }
+            }
+        }
+
+        function resetGame() {
+            document.getElementById("setup").classList.remove("hidden");
+            document.getElementById("game").classList.add("hidden");
+        }
+    </script>
+</body>
+</html>
